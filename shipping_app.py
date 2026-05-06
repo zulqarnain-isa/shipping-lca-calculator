@@ -16,48 +16,17 @@ st.markdown("**LNG vs Green Ammonia | Maritime Shipping | IPCC 2021 GWP100**")
 st.divider()
 
 # ════════════════════════════════════════════════════════
-# HELPER FUNCTION — Slider + Number Input combo
-# ════════════════════════════════════════════════════════
-
-def slider_with_input(label, min_val, max_val, default, step, key, help_text=None):
-    if key not in st.session_state:
-        st.session_state[key] = default
-    
-    slider_val = st.sidebar.slider(
-        label,
-        min_value=float(min_val),
-        max_value=float(max_val),
-        value=float(st.session_state[key]),
-        step=float(step),
-        key=f"{key}_slider",
-        help=help_text
-    )
-    
-    number_val = st.sidebar.number_input(
-        f"Or type {label}",
-        min_value=float(min_val),
-        max_value=float(max_val),
-        value=float(slider_val),
-        step=float(step),
-        key=f"{key}_input",
-        label_visibility="collapsed"
-    )
-    
-    st.session_state[key] = number_val
-    return number_val
-
-# ════════════════════════════════════════════════════════
-# SIDEBAR
+# SIDEBAR — SLIDERS ONLY
 # ════════════════════════════════════════════════════════
 
 st.sidebar.header("⚙️ Parameters")
-st.sidebar.caption("Drag slider OR type exact value below")
+st.sidebar.caption("Adjust sliders to explore parameter effects")
 
 # ── Route ──
 st.sidebar.subheader("🚢 Route")
-distance_nm = slider_with_input("Round-trip distance (NM)", 50, 500, 136, 0.1, "distance")
-speed_knots = slider_with_input("Average speed (knots)", 5, 25, 10, 0.1, "speed")
-maneuver_hours = slider_with_input("Maneuvering duration (hours)", 0, 12, 4, 0.1, "maneuver_h")
+distance_nm = st.sidebar.slider("Round-trip distance (NM)", 50.0, 500.0, 136.0, 0.1)
+speed_knots = st.sidebar.slider("Average speed (knots)", 5.0, 25.0, 10.0, 0.1)
+maneuver_hours = st.sidebar.slider("Maneuvering duration (hours)", 0.0, 12.0, 4.0, 0.1)
 
 cruising_hours = distance_nm / speed_knots
 total_hours = cruising_hours + maneuver_hours
@@ -67,63 +36,51 @@ st.sidebar.caption(f"Total time: {total_hours:.2f} h")
 
 # ── Engine ──
 st.sidebar.subheader("⚙️ Engine")
-engine_power = slider_with_input("Power per engine (kW)", 500, 5000, 2010, 1, "engine_power")
-n_engines = slider_with_input("Number of main engines", 1, 6, 4, 1, "n_engines")
-cruise_load = slider_with_input("Cruising load (%)", 30, 100, 75, 0.1, "cruise_load")
-maneuver_load = slider_with_input("Maneuvering load (%)", 10, 60, 25, 0.1, "maneuver_load")
-aux_power = slider_with_input("Auxiliary power (kW)", 50, 1000, 300, 1, "aux_power")
+engine_power = st.sidebar.slider("Power per engine (kW)", 500, 5000, 2010, 1)
+n_engines = st.sidebar.slider("Number of main engines", 1, 6, 4, 1)
+cruise_load = st.sidebar.slider("Cruising load (%)", 30.0, 100.0, 75.0, 0.1)
+maneuver_load = st.sidebar.slider("Maneuvering load (%)", 10.0, 60.0, 25.0, 0.1)
+aux_power = st.sidebar.slider("Auxiliary power (kW)", 50, 1000, 300, 1)
 
 total_power = engine_power * n_engines
-st.sidebar.caption(f"Total installed power: {total_power:,.0f} kW")
+st.sidebar.caption(f"Total installed power: {total_power:,} kW")
 
 # ── Fuel ──
 st.sidebar.subheader("⛽ Fuel")
-pilot_fraction = slider_with_input("Pilot fuel fraction (%)", 0, 20, 5, 0.1, "pilot_frac")
-lhv_lng = slider_with_input("LNG LHV (MJ/kg)", 40, 55, 50.0, 0.01, "lhv_lng")
-lhv_nh3 = slider_with_input("Ammonia LHV (MJ/kg)", 15, 22, 18.6, 0.01, "lhv_nh3")
-lhv_mgo = slider_with_input("MGO LHV (MJ/kg)", 38, 46, 42.7, 0.01, "lhv_mgo")
+pilot_fraction = st.sidebar.slider("Pilot fuel fraction (%)", 0.0, 20.0, 5.0, 0.1)
+lhv_lng = st.sidebar.slider("LNG LHV (MJ/kg)", 40.0, 55.0, 50.0, 0.01)
+lhv_nh3 = st.sidebar.slider("Ammonia LHV (MJ/kg)", 15.0, 22.0, 18.6, 0.01)
+lhv_mgo = st.sidebar.slider("MGO LHV (MJ/kg)", 38.0, 46.0, 42.7, 0.01)
 
 # ── Emission Factors ──
 st.sidebar.subheader("🌫️ Emission Factors (g/MJ)")
-ef_lng_co2 = slider_with_input("LNG CO2", 50, 65, 57.3, 0.001, "ef_lng_co2")
-ef_lng_ch4 = slider_with_input("LNG CH4", 0.0, 1.0, 0.41, 0.001, "ef_lng_ch4")
-ef_lng_n2o_x1000 = slider_with_input("LNG N2O (×10⁻³)", 0.0, 10.0, 2.92, 0.001, "ef_lng_n2o")
+ef_lng_co2 = st.sidebar.slider("LNG CO2", 50.0, 65.0, 57.3, 0.001)
+ef_lng_ch4 = st.sidebar.slider("LNG CH4", 0.0, 1.0, 0.41, 0.001)
+ef_lng_n2o_x1000 = st.sidebar.slider("LNG N2O (×10⁻³)", 0.0, 10.0, 2.92, 0.001)
 ef_lng_n2o = ef_lng_n2o_x1000 / 1000
 
-ef_nh3_n2o = slider_with_input("Ammonia N2O", 0.0, 1.0, 0.27, 0.001, "ef_nh3_n2o")
-ef_nh3_slip = slider_with_input("Ammonia NH3 slip", 0.0, 5.0, 1.39, 0.001, "ef_nh3_slip")
+ef_nh3_n2o = st.sidebar.slider("Ammonia N2O", 0.0, 1.0, 0.27, 0.001)
+ef_nh3_slip = st.sidebar.slider("Ammonia NH3 slip", 0.0, 5.0, 1.39, 0.001)
 
-ef_mgo_co2 = slider_with_input("MGO CO2", 65, 85, 75.1, 0.001, "ef_mgo_co2")
-ef_mgo_ch4_x1000 = slider_with_input("MGO CH4 (×10⁻³)", 0.0, 5.0, 1.41, 0.001, "ef_mgo_ch4")
+ef_mgo_co2 = st.sidebar.slider("MGO CO2", 65.0, 85.0, 75.1, 0.001)
+ef_mgo_ch4_x1000 = st.sidebar.slider("MGO CH4 (×10⁻³)", 0.0, 5.0, 1.41, 0.001)
 ef_mgo_ch4 = ef_mgo_ch4_x1000 / 1000
 
-ef_mgo_n2o_x1000 = slider_with_input("MGO N2O (×10⁻³)", 0.0, 10.0, 4.22, 0.001, "ef_mgo_n2o")
+ef_mgo_n2o_x1000 = st.sidebar.slider("MGO N2O (×10⁻³)", 0.0, 10.0, 4.22, 0.001)
 ef_mgo_n2o = ef_mgo_n2o_x1000 / 1000
 
 # ── SCR ──
 st.sidebar.subheader("🔧 SCR (Ammonia only)")
-scr_efficiency = slider_with_input("SCR efficiency (%)", 0, 100, 20, 0.1, "scr_eff")
+scr_efficiency = st.sidebar.slider("SCR efficiency (%)", 0.0, 100.0, 20.0, 0.1)
 
-# ── Economic Parameters (NEW) ──
+# ── Economic Parameters ──
 st.sidebar.subheader("💰 Economic Parameters")
 st.sidebar.caption("Defaults are illustrative — adjust as needed")
 
-price_lng = slider_with_input(
-    "LNG price (€/kg)", 0.1, 3.0, 0.50, 0.01, "price_lng",
-    help_text="Default: €0.50/kg. Source: 2024 EU LNG spot price (varies)"
-)
-price_nh3 = slider_with_input(
-    "Green Ammonia price (€/kg)", 0.1, 5.0, 1.20, 0.01, "price_nh3",
-    help_text="Default: €1.20/kg. Source: IRENA green ammonia estimates 2024"
-)
-price_mgo = slider_with_input(
-    "MGO price (€/kg)", 0.1, 2.0, 0.80, 0.01, "price_mgo",
-    help_text="Default: €0.80/kg. Source: Ship & Bunker average 2024"
-)
-price_carbon = slider_with_input(
-    "EU ETS carbon price (€/ton CO2)", 0, 200, 80, 1, "price_carbon",
-    help_text="Default: €80/ton. Source: EU ETS 2024 average"
-)
+price_lng = st.sidebar.slider("LNG price (€/kg)", 0.1, 3.0, 0.50, 0.01)
+price_nh3 = st.sidebar.slider("Green Ammonia price (€/kg)", 0.1, 5.0, 1.20, 0.01)
+price_mgo = st.sidebar.slider("MGO price (€/kg)", 0.1, 2.0, 0.80, 0.01)
+price_carbon = st.sidebar.slider("EU ETS carbon price (€/ton CO2)", 0, 200, 80, 1)
 
 # ── Characterization Factors ──
 CF_CO2 = 1.0
@@ -226,11 +183,8 @@ st.subheader("📊 GWP100 Results — One Round Trip")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric(
-        label="🔵 LNG + MGO",
-        value=f"{lng_gwp:,.0f} kg CO2-eq",
-        help="Reference scenario"
-    )
+    st.metric(label="🔵 LNG + MGO", value=f"{lng_gwp:,.0f} kg CO2-eq",
+              help="Reference scenario")
 
 with col2:
     diff = amm_gwp - lng_gwp
@@ -240,8 +194,7 @@ with col2:
     st.metric(
         label=f"🟢 Ammonia + MGO (SCR {scr_efficiency:.1f}%)",
         value=f"{amm_gwp:,.0f} kg CO2-eq",
-        delta=label,
-        delta_color=color
+        delta=label, delta_color=color
     )
 
 st.divider()
@@ -311,19 +264,20 @@ with col_right:
 st.divider()
 
 # ════════════════════════════════════════════════════════
-# TORNADO DIAGRAM (NEW)
+# TORNADO DIAGRAM — Impact on GWP Difference
 # ════════════════════════════════════════════════════════
 
 st.subheader("🌪️ Tornado Diagram — Parameter Importance")
-st.markdown("Shows which parameters most affect the **ammonia GWP** result. Each parameter varied ±20%.")
+st.markdown("Shows which parameters most affect the **GWP difference between Ammonia and LNG**. "
+            "Each parameter varied ±20%.")
 
-# Calculate ammonia GWP for ±20% variation in each parameter
-def calc_amm_gwp(params):
-    """Calculate ammonia GWP given a dict of modified parameters"""
+# Function to calculate both GWPs given modified parameters
+def calc_both_gwps(params):
     p = {
+        'ef_lng_co2': ef_lng_co2, 'ef_lng_ch4': ef_lng_ch4, 'ef_lng_n2o': ef_lng_n2o,
         'ef_nh3_n2o': ef_nh3_n2o, 'ef_nh3_slip': ef_nh3_slip,
         'ef_mgo_co2': ef_mgo_co2, 'ef_mgo_ch4': ef_mgo_ch4, 'ef_mgo_n2o': ef_mgo_n2o,
-        'lhv_nh3': lhv_nh3, 'lhv_mgo': lhv_mgo,
+        'lhv_lng': lhv_lng, 'lhv_nh3': lhv_nh3, 'lhv_mgo': lhv_mgo,
         'engine_power': engine_power, 'n_engines': n_engines,
         'cruise_load': cruise_load, 'maneuver_load': maneuver_load,
         'aux_power': aux_power, 'cruising_hours': cruising_hours,
@@ -341,22 +295,37 @@ def calc_amm_gwp(params):
     e_p = e_t_mj * (p['pilot_fraction']/100)
     e_m = e_t_mj * (1 - p['pilot_fraction']/100)
     
-    n_n2o = (e_m * p['ef_nh3_n2o'] / 1000) * (1 - p['scr_efficiency']/100)
-    n_slip = e_m * p['ef_nh3_slip'] / 1000
+    # LNG GWP
+    l_co2 = e_m * p['ef_lng_co2'] / 1000
+    l_ch4 = e_m * p['ef_lng_ch4'] / 1000
+    l_n2o = e_m * p['ef_lng_n2o'] / 1000
     m_co2 = e_p * p['ef_mgo_co2'] / 1000
     m_ch4 = e_p * p['ef_mgo_ch4'] / 1000
     m_n2o = e_p * p['ef_mgo_n2o'] / 1000
     
-    return (n_n2o*CF_N2O + n_slip*CF_NH3 +
-            m_co2*CF_CO2 + m_ch4*CF_CH4 + m_n2o*CF_N2O)
+    lng_g = (l_co2*CF_CO2 + l_ch4*CF_CH4 + l_n2o*CF_N2O +
+             m_co2*CF_CO2 + m_ch4*CF_CH4 + m_n2o*CF_N2O)
+    
+    # Ammonia GWP
+    n_n2o = (e_m * p['ef_nh3_n2o'] / 1000) * (1 - p['scr_efficiency']/100)
+    n_slip = e_m * p['ef_nh3_slip'] / 1000
+    
+    amm_g = (n_n2o*CF_N2O + n_slip*CF_NH3 +
+             m_co2*CF_CO2 + m_ch4*CF_CH4 + m_n2o*CF_N2O)
+    
+    return lng_g, amm_g
 
 # Parameters to test
 parameters_to_test = {
     'NH3 N2O EF':      ('ef_nh3_n2o', ef_nh3_n2o),
+    'LNG CO2 EF':      ('ef_lng_co2', ef_lng_co2),
+    'LNG CH4 EF':      ('ef_lng_ch4', ef_lng_ch4),
+    'LNG N2O EF':      ('ef_lng_n2o', ef_lng_n2o),
     'NH3 slip EF':     ('ef_nh3_slip', ef_nh3_slip),
     'NH3 LHV':         ('lhv_nh3', lhv_nh3),
-    'MGO CO2 EF':      ('ef_mgo_co2', ef_mgo_co2),
+    'LNG LHV':         ('lhv_lng', lhv_lng),
     'MGO LHV':         ('lhv_mgo', lhv_mgo),
+    'MGO CO2 EF':      ('ef_mgo_co2', ef_mgo_co2),
     'Cruising load':   ('cruise_load', cruise_load),
     'Engine power':    ('engine_power', engine_power),
     'Auxiliary power': ('aux_power', aux_power),
@@ -364,28 +333,31 @@ parameters_to_test = {
     'SCR efficiency':  ('scr_efficiency', scr_efficiency),
 }
 
-baseline_amm = amm_gwp
+baseline_diff = amm_gwp - lng_gwp  # Negative if ammonia is better
 tornado_data = []
 
 for label, (param_name, base_value) in parameters_to_test.items():
     low_val = base_value * 0.80
     high_val = base_value * 1.20
     
-    gwp_low = calc_amm_gwp({param_name: low_val})
-    gwp_high = calc_amm_gwp({param_name: high_val})
+    lng_low, amm_low = calc_both_gwps({param_name: low_val})
+    lng_high, amm_high = calc_both_gwps({param_name: high_val})
+    
+    diff_low = amm_low - lng_low
+    diff_high = amm_high - lng_high
     
     tornado_data.append({
         'parameter': label,
-        'low_diff': gwp_low - baseline_amm,
-        'high_diff': gwp_high - baseline_amm,
-        'range': abs(gwp_high - gwp_low)
+        'low_diff': diff_low - baseline_diff,
+        'high_diff': diff_high - baseline_diff,
+        'range': abs(diff_high - diff_low)
     })
 
-# Sort by range (impact)
+# Sort by impact
 tornado_data.sort(key=lambda x: x['range'], reverse=True)
 
 # Plot
-fig5, ax5 = plt.subplots(figsize=(11, 6))
+fig5, ax5 = plt.subplots(figsize=(11, 7))
 
 y_pos = np.arange(len(tornado_data))
 labels = [d['parameter'] for d in tornado_data]
@@ -399,17 +371,17 @@ ax5.set_yticks(y_pos)
 ax5.set_yticklabels(labels)
 ax5.invert_yaxis()
 ax5.axvline(x=0, color='black', linewidth=1)
-ax5.set_xlabel('Change in Ammonia GWP100 (kg CO2-eq)')
-ax5.set_title(f'Tornado Diagram — Baseline Ammonia GWP: {baseline_amm:,.0f} kg CO2-eq\n'
-              '(parameters ranked by impact)')
+ax5.set_xlabel('Change in (Ammonia GWP − LNG GWP) — kg CO2-eq')
+ax5.set_title(f'Tornado Diagram — Baseline GWP Difference: {baseline_diff:,.0f} kg CO2-eq\n'
+              '(parameters ranked by impact on the comparison)')
 ax5.legend(loc='lower right')
 ax5.grid(True, alpha=0.3, axis='x')
 
 plt.tight_layout()
 st.pyplot(fig5)
 
-st.caption("**How to read:** Longer bars = parameter has bigger effect on result. "
-           "Blue = parameter value 20% lower, Red = parameter value 20% higher.")
+st.caption("**How to read:** Longer bars = parameter has bigger effect on whether ammonia beats LNG. "
+           "Bars to the LEFT = ammonia becomes better. Bars to the RIGHT = LNG becomes better.")
 
 st.divider()
 
@@ -455,13 +427,12 @@ st.pyplot(fig3)
 st.divider()
 
 # ════════════════════════════════════════════════════════
-# COST ANALYSIS (NEW)
+# COST ANALYSIS
 # ════════════════════════════════════════════════════════
 
 st.subheader("💰 Operational Cost Analysis")
 st.markdown("OPEX comparison including fuel and EU ETS carbon costs (CAPEX excluded)")
 
-# Calculate costs
 fuel_cost_lng = mass_lng * price_lng
 fuel_cost_nh3 = mass_nh3 * price_nh3
 fuel_cost_mgo = mass_pilot * price_mgo
@@ -477,12 +448,10 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("**🔵 LNG + MGO**")
     cost_data_lng = pd.DataFrame({
-        'Cost Component': ['LNG fuel', 'MGO pilot', 'Carbon (EU ETS)', '**TOTAL**'],
+        'Cost Component': ['LNG fuel', 'MGO pilot', 'Carbon (EU ETS)', 'TOTAL'],
         'Amount (€)': [
-            f"€{fuel_cost_lng:,.0f}",
-            f"€{fuel_cost_mgo:,.0f}",
-            f"€{carbon_cost_lng:,.0f}",
-            f"**€{total_cost_lng:,.0f}**"
+            f"€{fuel_cost_lng:,.0f}", f"€{fuel_cost_mgo:,.0f}",
+            f"€{carbon_cost_lng:,.0f}", f"€{total_cost_lng:,.0f}"
         ]
     })
     st.dataframe(cost_data_lng, use_container_width=True, hide_index=True)
@@ -490,79 +459,54 @@ with col1:
 with col2:
     st.markdown(f"**🟢 Ammonia + MGO (SCR {scr_efficiency:.1f}%)**")
     cost_data_amm = pd.DataFrame({
-        'Cost Component': ['Ammonia fuel', 'MGO pilot', 'Carbon (EU ETS)', '**TOTAL**'],
+        'Cost Component': ['Ammonia fuel', 'MGO pilot', 'Carbon (EU ETS)', 'TOTAL'],
         'Amount (€)': [
-            f"€{fuel_cost_nh3:,.0f}",
-            f"€{fuel_cost_mgo:,.0f}",
-            f"€{carbon_cost_amm:,.0f}",
-            f"**€{total_cost_amm:,.0f}**"
+            f"€{fuel_cost_nh3:,.0f}", f"€{fuel_cost_mgo:,.0f}",
+            f"€{carbon_cost_amm:,.0f}", f"€{total_cost_amm:,.0f}"
         ]
     })
     st.dataframe(cost_data_amm, use_container_width=True, hide_index=True)
 
-# Comparison metrics
 st.markdown("### 📐 Cost Comparison Metrics")
 
 cost_diff = total_cost_amm - total_cost_lng
-gwp_saved = (lng_gwp - amm_gwp) / 1000  # tons
+gwp_saved = (lng_gwp - amm_gwp) / 1000
 
 col_a, col_b, col_c = st.columns(3)
 
 with col_a:
     if cost_diff > 0:
-        st.metric(
-            "Cost Difference (per trip)",
-            f"€{abs(cost_diff):,.0f} more",
-            delta="Ammonia is more expensive",
-            delta_color="inverse"
-        )
+        st.metric("Cost Difference (per trip)",
+                  f"€{abs(cost_diff):,.0f} more",
+                  delta="Ammonia is more expensive", delta_color="inverse")
     else:
-        st.metric(
-            "Cost Difference (per trip)",
-            f"€{abs(cost_diff):,.0f} less",
-            delta="Ammonia is cheaper",
-            delta_color="normal"
-        )
+        st.metric("Cost Difference (per trip)",
+                  f"€{abs(cost_diff):,.0f} less",
+                  delta="Ammonia is cheaper", delta_color="normal")
 
 with col_b:
     if gwp_saved > 0:
-        st.metric(
-            "CO2-eq Saved (per trip)",
-            f"{gwp_saved:,.2f} tons",
-            delta="Ammonia reduces emissions",
-            delta_color="normal"
-        )
+        st.metric("CO2-eq Saved (per trip)",
+                  f"{gwp_saved:,.2f} tons",
+                  delta="Ammonia reduces emissions", delta_color="normal")
     else:
-        st.metric(
-            "CO2-eq Saved (per trip)",
-            f"{abs(gwp_saved):,.2f} tons more",
-            delta="Ammonia increases emissions",
-            delta_color="inverse"
-        )
+        st.metric("CO2-eq Saved (per trip)",
+                  f"{abs(gwp_saved):,.2f} tons more",
+                  delta="Ammonia increases emissions", delta_color="inverse")
 
 with col_c:
     if gwp_saved > 0 and cost_diff > 0:
         abatement_cost = cost_diff / gwp_saved
-        st.metric(
-            "Carbon Abatement Cost",
-            f"€{abatement_cost:,.0f}/ton CO2",
-            help="Extra cost per ton of CO2-eq avoided. Compare to other decarbonization options."
-        )
+        st.metric("Carbon Abatement Cost",
+                  f"€{abatement_cost:,.0f}/ton CO2",
+                  help="Extra cost per ton of CO2-eq avoided")
     elif gwp_saved > 0 and cost_diff < 0:
-        st.metric(
-            "Carbon Abatement Cost",
-            "Win-Win!",
-            delta="Cheaper AND greener",
-            delta_color="normal"
-        )
+        st.metric("Carbon Abatement Cost", "Win-Win!",
+                  delta="Cheaper AND greener", delta_color="normal")
     else:
-        st.metric(
-            "Carbon Abatement Cost",
-            "N/A",
-            help="Ammonia neither saves emissions nor costs less"
-        )
+        st.metric("Carbon Abatement Cost", "N/A",
+                  help="Ammonia neither saves emissions nor costs less")
 
-# Reference for context
 st.caption("💡 **Carbon abatement cost reference:** "
            "Renewable electricity ~€100/ton | Carbon capture ~€600/ton | "
            "Direct air capture ~€800/ton | Tree planting ~€20/ton")
