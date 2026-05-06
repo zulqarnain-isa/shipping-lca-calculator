@@ -16,99 +16,140 @@ st.markdown("**LNG vs Green Ammonia | Maritime Shipping | IPCC 2021 GWP100**")
 st.divider()
 
 # ════════════════════════════════════════════════════════
-# SIDEBAR — ALL INPUT SLIDERS
+# HELPER FUNCTION — Slider + Number Input combo
+# ════════════════════════════════════════════════════════
+
+def slider_with_input(label, min_val, max_val, default, step, key, help_text=None):
+    """Creates a slider with a synchronized number input below it."""
+    
+    # Initialize session state
+    if key not in st.session_state:
+        st.session_state[key] = default
+    
+    # Slider
+    slider_val = st.sidebar.slider(
+        label,
+        min_value=float(min_val),
+        max_value=float(max_val),
+        value=float(st.session_state[key]),
+        step=float(step),
+        key=f"{key}_slider",
+        help=help_text
+    )
+    
+    # Number input below
+    number_val = st.sidebar.number_input(
+        f"Or type {label}",
+        min_value=float(min_val),
+        max_value=float(max_val),
+        value=float(slider_val),
+        step=float(step),
+        key=f"{key}_input",
+        label_visibility="collapsed"
+    )
+    
+    # Update session state
+    st.session_state[key] = number_val
+    return number_val
+
+# ════════════════════════════════════════════════════════
+# SIDEBAR — ALL INPUT SLIDERS WITH NUMBER INPUTS
 # ════════════════════════════════════════════════════════
 
 st.sidebar.header("⚙️ Parameters")
+st.sidebar.caption("Drag slider OR type exact value below each slider")
 
 # ── Route ──
 st.sidebar.subheader("🚢 Route")
-distance_nm = st.sidebar.slider(
-    "Round-trip distance (NM)", 50, 500, 136, step=1
+distance_nm = slider_with_input(
+    "Round-trip distance (NM)", 50, 500, 136, 0.1, "distance"
 )
-speed_knots = st.sidebar.slider(
-    "Average speed (knots)", 5, 25, 10, step=1
+speed_knots = slider_with_input(
+    "Average speed (knots)", 5, 25, 10, 0.1, "speed"
 )
-maneuver_hours = st.sidebar.slider(
-    "Maneuvering duration (hours)", 0, 12, 4, step=1
+maneuver_hours = slider_with_input(
+    "Maneuvering duration (hours)", 0, 12, 4, 0.1, "maneuver_h"
 )
 
-# Calculate cruising hours
 cruising_hours = distance_nm / speed_knots
 total_hours = cruising_hours + maneuver_hours
 
-st.sidebar.caption(f"Cruising time: {cruising_hours:.1f} h")
-st.sidebar.caption(f"Total time: {total_hours:.1f} h")
+st.sidebar.caption(f"Cruising time (calculated): {cruising_hours:.2f} h")
+st.sidebar.caption(f"Total time: {total_hours:.2f} h")
 
 # ── Engine ──
 st.sidebar.subheader("⚙️ Engine")
-engine_power = st.sidebar.slider(
-    "Power per engine (kW)", 500, 5000, 2010, step=10
+engine_power = slider_with_input(
+    "Power per engine (kW)", 500, 5000, 2010, 1, "engine_power"
 )
-n_engines = st.sidebar.slider(
-    "Number of main engines", 1, 6, 4, step=1
+n_engines = slider_with_input(
+    "Number of main engines", 1, 6, 4, 1, "n_engines"
 )
-cruise_load = st.sidebar.slider(
-    "Cruising load (%)", 30, 100, 75, step=1
+cruise_load = slider_with_input(
+    "Cruising load (%)", 30, 100, 75, 0.1, "cruise_load"
 )
-maneuver_load = st.sidebar.slider(
-    "Maneuvering load (%)", 10, 60, 25, step=1
+maneuver_load = slider_with_input(
+    "Maneuvering load (%)", 10, 60, 25, 0.1, "maneuver_load"
 )
-aux_power = st.sidebar.slider(
-    "Auxiliary power (kW)", 50, 1000, 300, step=10
+aux_power = slider_with_input(
+    "Auxiliary power (kW)", 50, 1000, 300, 1, "aux_power"
 )
 
 total_power = engine_power * n_engines
-st.sidebar.caption(f"Total installed power: {total_power:,} kW")
+st.sidebar.caption(f"Total installed power: {total_power:,.0f} kW")
 
 # ── Fuel ──
 st.sidebar.subheader("⛽ Fuel")
-pilot_fraction = st.sidebar.slider(
-    "Pilot fuel fraction (%)", 0, 20, 5, step=1
+pilot_fraction = slider_with_input(
+    "Pilot fuel fraction (%)", 0, 20, 5, 0.1, "pilot_frac"
 )
-lhv_lng = st.sidebar.slider(
-    "LNG LHV (MJ/kg)", 40.0, 55.0, 50.0, step=0.5
+lhv_lng = slider_with_input(
+    "LNG LHV (MJ/kg)", 40, 55, 50.0, 0.01, "lhv_lng"
 )
-lhv_nh3 = st.sidebar.slider(
-    "Ammonia LHV (MJ/kg)", 15.0, 22.0, 18.6, step=0.1
+lhv_nh3 = slider_with_input(
+    "Ammonia LHV (MJ/kg)", 15, 22, 18.6, 0.01, "lhv_nh3"
 )
-lhv_mgo = st.sidebar.slider(
-    "MGO LHV (MJ/kg)", 38.0, 46.0, 42.7, step=0.1
+lhv_mgo = slider_with_input(
+    "MGO LHV (MJ/kg)", 38, 46, 42.7, 0.01, "lhv_mgo"
 )
 
 # ── Emission Factors ──
 st.sidebar.subheader("🌫️ Emission Factors (g/MJ)")
-ef_lng_co2 = st.sidebar.slider(
-    "LNG CO2", 50.0, 65.0, 57.3, step=0.1
+ef_lng_co2 = slider_with_input(
+    "LNG CO2", 50, 65, 57.3, 0.001, "ef_lng_co2"
 )
-ef_lng_ch4 = st.sidebar.slider(
-    "LNG CH4", 0.0, 1.0, 0.41, step=0.01
+ef_lng_ch4 = slider_with_input(
+    "LNG CH4", 0.0, 1.0, 0.41, 0.001, "ef_lng_ch4"
 )
-ef_lng_n2o = st.sidebar.slider(
-    "LNG N2O (×10⁻³)", 0.0, 10.0, 2.92, step=0.01
-) / 1000
+ef_lng_n2o_x1000 = slider_with_input(
+    "LNG N2O (×10⁻³)", 0.0, 10.0, 2.92, 0.001, "ef_lng_n2o"
+)
+ef_lng_n2o = ef_lng_n2o_x1000 / 1000
 
-ef_nh3_n2o = st.sidebar.slider(
-    "Ammonia N2O", 0.0, 1.0, 0.27, step=0.01
+ef_nh3_n2o = slider_with_input(
+    "Ammonia N2O", 0.0, 1.0, 0.27, 0.001, "ef_nh3_n2o"
 )
-ef_nh3_slip = st.sidebar.slider(
-    "Ammonia NH3 slip", 0.0, 5.0, 1.39, step=0.01
+ef_nh3_slip = slider_with_input(
+    "Ammonia NH3 slip", 0.0, 5.0, 1.39, 0.001, "ef_nh3_slip"
 )
 
-ef_mgo_co2 = st.sidebar.slider(
-    "MGO CO2", 65.0, 85.0, 75.1, step=0.1
+ef_mgo_co2 = slider_with_input(
+    "MGO CO2", 65, 85, 75.1, 0.001, "ef_mgo_co2"
 )
-ef_mgo_ch4 = st.sidebar.slider(
-    "MGO CH4 (×10⁻³)", 0.0, 5.0, 1.41, step=0.01
-) / 1000
-ef_mgo_n2o = st.sidebar.slider(
-    "MGO N2O (×10⁻³)", 0.0, 10.0, 4.22, step=0.01
-) / 1000
+ef_mgo_ch4_x1000 = slider_with_input(
+    "MGO CH4 (×10⁻³)", 0.0, 5.0, 1.41, 0.001, "ef_mgo_ch4"
+)
+ef_mgo_ch4 = ef_mgo_ch4_x1000 / 1000
+
+ef_mgo_n2o_x1000 = slider_with_input(
+    "MGO N2O (×10⁻³)", 0.0, 10.0, 4.22, 0.001, "ef_mgo_n2o"
+)
+ef_mgo_n2o = ef_mgo_n2o_x1000 / 1000
 
 # ── SCR ──
 st.sidebar.subheader("🔧 SCR (Ammonia only)")
-scr_efficiency = st.sidebar.slider(
-    "SCR efficiency (%)", 0, 100, 20, step=1
+scr_efficiency = slider_with_input(
+    "SCR efficiency (%)", 0, 100, 20, 0.1, "scr_eff"
 )
 
 # ── Characterization Factors ──
@@ -125,24 +166,19 @@ st.sidebar.caption(f"CO2: {CF_CO2} | CH4: {CF_CH4} | N2O: {CF_N2O} | NH3: {CF_NH
 # CALCULATIONS
 # ════════════════════════════════════════════════════════
 
-# Energy demand (kWh)
 e_cruising = total_power * (cruise_load/100) * cruising_hours
 e_maneuver = total_power * (maneuver_load/100) * maneuver_hours
 e_aux = aux_power * total_hours
 e_total_kwh = e_cruising + e_maneuver + e_aux
 e_total_mj = e_total_kwh * 3.6
 
-# Fuel split
 e_pilot = e_total_mj * (pilot_fraction/100)
 e_main = e_total_mj * (1 - pilot_fraction/100)
 
-# Fuel mass
 mass_pilot = e_pilot / lhv_mgo
 mass_lng = e_main / lhv_lng
 mass_nh3 = e_main / lhv_nh3
 
-# ── LNG + MGO Configuration ──
-# Convert g/MJ to kg by multiplying by MJ then /1000
 lng_co2 = e_main * ef_lng_co2 / 1000
 lng_ch4 = e_main * ef_lng_ch4 / 1000
 lng_n2o = e_main * ef_lng_n2o / 1000
@@ -154,9 +190,8 @@ mgo_n2o = e_pilot * ef_mgo_n2o / 1000
 lng_gwp = (lng_co2*CF_CO2 + lng_ch4*CF_CH4 + lng_n2o*CF_N2O +
            mgo_co2*CF_CO2 + mgo_ch4*CF_CH4 + mgo_n2o*CF_N2O)
 
-# ── Ammonia + MGO Configuration ──
 nh3_n2o_raw = e_main * ef_nh3_n2o / 1000
-nh3_n2o = nh3_n2o_raw * (1 - scr_efficiency/100)  # SCR applied
+nh3_n2o = nh3_n2o_raw * (1 - scr_efficiency/100)
 nh3_slip = e_main * ef_nh3_slip / 1000
 
 amm_gwp = (nh3_n2o*CF_N2O + nh3_slip*CF_NH3 +
@@ -179,9 +214,9 @@ with col4:
 
 col5, col6 = st.columns(2)
 with col5:
-    st.info(f"**Pilot fuel energy** ({pilot_fraction}%): {e_pilot:,.1f} MJ")
+    st.info(f"**Pilot fuel energy** ({pilot_fraction:.1f}%): {e_pilot:,.1f} MJ")
 with col6:
-    st.info(f"**Main fuel energy** ({100-pilot_fraction}%): {e_main:,.1f} MJ")
+    st.info(f"**Main fuel energy** ({100-pilot_fraction:.1f}%): {e_main:,.1f} MJ")
 
 st.divider()
 
@@ -204,7 +239,8 @@ with col2:
     st.metric("MGO pilot", f"{mass_pilot:,.0f} kg")
     st.metric("**Total fuel**", f"{mass_nh3 + mass_pilot:,.0f} kg")
 
-st.caption(f"Note: Ammonia requires {mass_nh3/mass_lng:.1f}× more mass than LNG for the same energy.")
+if mass_lng > 0:
+    st.caption(f"Note: Ammonia requires {mass_nh3/mass_lng:.1f}× more mass than LNG for the same energy.")
 
 st.divider()
 
@@ -225,11 +261,11 @@ with col1:
 
 with col2:
     diff = amm_gwp - lng_gwp
-    pct = diff / lng_gwp * 100
+    pct = diff / lng_gwp * 100 if lng_gwp > 0 else 0
     label = f"{abs(pct):.1f}% {'more' if pct > 0 else 'less'} GWP than LNG"
     color = "inverse" if pct > 0 else "normal"
     st.metric(
-        label=f"🟢 Ammonia + MGO (SCR {scr_efficiency}%)",
+        label=f"🟢 Ammonia + MGO (SCR {scr_efficiency:.1f}%)",
         value=f"{amm_gwp:,.0f} kg CO2-eq",
         delta=label,
         delta_color=color
@@ -246,7 +282,7 @@ col_left, col_right = st.columns(2)
 with col_left:
     st.subheader("📊 Scenario Comparison")
     
-    scenarios = ['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency}%']
+    scenarios = ['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency:.1f}%']
     values = [lng_gwp, amm_gwp]
     colors = ['#2196F3', '#4CAF50']
     
@@ -290,7 +326,7 @@ with col_right:
     
     ax2.scatter([scr_efficiency], [amm_gwp],
                 color='green', s=100, zorder=5,
-                label=f'Current: SCR {scr_efficiency}%')
+                label=f'Current: SCR {scr_efficiency:.1f}%')
     
     ax2.set_xlabel('SCR Efficiency (%)')
     ax2.set_ylabel('GWP100 (kg CO2-eq per round trip)')
@@ -315,7 +351,7 @@ contrib_data = {
 
 df_contrib = pd.DataFrame(
     contrib_data,
-    index=['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency}%']
+    index=['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency:.1f}%']
 )
 
 fig3, ax3 = plt.subplots(figsize=(10, 5))
@@ -373,7 +409,7 @@ amm_runs = (e_main*s_nh3_n2o/1000*(1-scr_efficiency/100)*CF_N2O +
             e_pilot*s_mgo_n2o/1000*CF_N2O)
 
 mc_stats = pd.DataFrame({
-    'Scenario': ['LNG + MGO', f'Ammonia + MGO (SCR {scr_efficiency}%)'],
+    'Scenario': ['LNG + MGO', f'Ammonia + MGO (SCR {scr_efficiency:.1f}%)'],
     'Mean (kg CO2-eq)': [f"{np.mean(r):,.0f}" for r in [lng_runs, amm_runs]],
     '5th Percentile': [f"{np.percentile(r,5):,.0f}" for r in [lng_runs, amm_runs]],
     '95th Percentile': [f"{np.percentile(r,95):,.0f}" for r in [lng_runs, amm_runs]],
@@ -384,7 +420,7 @@ fig4, ax4 = plt.subplots(figsize=(12, 6))
 
 mc_scenarios = [
     ('LNG + MGO', lng_runs, '#2196F3'),
-    (f'Ammonia + MGO (SCR {scr_efficiency}%)', amm_runs, '#4CAF50'),
+    (f'Ammonia + MGO (SCR {scr_efficiency:.1f}%)', amm_runs, '#4CAF50'),
 ]
 
 for name, runs, color in mc_scenarios:
