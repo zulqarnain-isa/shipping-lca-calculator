@@ -370,18 +370,39 @@ ax5.barh(y_pos, high_bars, color='#F44336', alpha=0.7, label='+20% parameter val
 ax5.set_yticks(y_pos)
 ax5.set_yticklabels(labels)
 ax5.invert_yaxis()
-ax5.axvline(x=0, color='black', linewidth=1)
-ax5.set_xlabel('Change in (Ammonia GWP − LNG GWP) — kg CO2-eq')
+ax5.axvline(x=0, color='black', linewidth=1.5)
+ax5.set_xlabel('Change in (Ammonia GWP − LNG GWP) — kg CO2-eq', fontsize=11)
 ax5.set_title(f'Tornado Diagram — Baseline GWP Difference: {baseline_diff:,.0f} kg CO2-eq\n'
-              '(parameters ranked by impact on the comparison)')
+              '(parameters ranked by impact on the comparison)', fontsize=12)
+
+# Add directional labels on the chart
+x_min, x_max = ax5.get_xlim()
+y_top = -0.7
+ax5.text(x_min * 0.5, y_top, '← Ammonia performs BETTER',
+         ha='center', va='center', fontsize=11, fontweight='bold',
+         color='#2E7D32',
+         bbox=dict(boxstyle='round,pad=0.4', facecolor='#E8F5E9', edgecolor='#2E7D32'))
+ax5.text(x_max * 0.5, y_top, 'LNG performs BETTER →',
+         ha='center', va='center', fontsize=11, fontweight='bold',
+         color='#1565C0',
+         bbox=dict(boxstyle='round,pad=0.4', facecolor='#E3F2FD', edgecolor='#1565C0'))
+
 ax5.legend(loc='lower right')
 ax5.grid(True, alpha=0.3, axis='x')
 
 plt.tight_layout()
 st.pyplot(fig5)
 
-st.caption("**How to read:** Longer bars = parameter has bigger effect on whether ammonia beats LNG. "
-           "Bars to the LEFT = ammonia becomes better. Bars to the RIGHT = LNG becomes better.")
+st.markdown("""
+**📖 How to read this diagram:**
+
+- **Bar length** — Longer bars mean that parameter has a bigger impact on the comparison
+- **Bar position** — Bars to the **left** mean Ammonia performs better; bars to the **right** mean LNG performs better
+- **Bar color** — 🔵 Blue = parameter decreased by 20%, 🔴 Red = parameter increased by 20%
+
+For example, if the *NH3 N2O EF* blue bar extends far to the left, it means: 
+*"If NH3 N2O emissions are 20% lower than expected, ammonia performs significantly better than LNG."*
+""")
 
 st.divider()
 
