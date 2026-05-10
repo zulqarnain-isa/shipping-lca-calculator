@@ -69,6 +69,19 @@ ef_mgo_ch4 = ef_mgo_ch4_x1000 / 1000
 ef_mgo_n2o_x1000 = st.sidebar.slider("MGO N2O (×10⁻³)", 0.0, 10.0, 4.22, 0.001)
 ef_mgo_n2o = ef_mgo_n2o_x1000 / 1000
 
+# ── WTT Emissions (NEW) ──
+st.sidebar.subheader("🌍 Upstream Emissions (WTT, g CO2-eq/MJ)")
+st.sidebar.caption("Source values from literature for each fuel")
+
+include_wtt = st.sidebar.checkbox(
+    "Include upstream emissions (WTW analysis)",
+    value=False
+)
+
+wtt_lng = st.sidebar.slider("LNG WTT GWP100", 0.0, 30.0, 9.7, 0.1)
+wtt_nh3 = st.sidebar.slider("Green Ammonia WTT GWP100", 0.0, 30.0, 9.7, 0.1)
+wtt_mgo = st.sidebar.slider("MGO WTT GWP100", 0.0, 30.0, 12.8, 0.1)
+
 # ── SCR ──
 st.sidebar.subheader("🔧 SCR (Ammonia only)")
 scr_efficiency = st.sidebar.slider("SCR efficiency (%)", 0.0, 100.0, 20.0, 0.1)
@@ -127,6 +140,25 @@ nh3_slip = e_main * ef_nh3_slip / 1000
 amm_gwp = (nh3_n2o*CF_N2O + nh3_slip*CF_NH3 +
            mgo_co2*CF_CO2 + mgo_ch4*CF_CH4 + mgo_n2o*CF_N2O)
 
+# WTT calculations (kg CO2-eq per round trip)
+wtt_lng_kg = e_main * wtt_lng / 1000
+wtt_nh3_kg = e_main * wtt_nh3 / 1000
+wtt_mgo_kg = e_pilot * wtt_mgo / 1000
+
+# WTW totals
+lng_wtw = lng_gwp + wtt_lng_kg + wtt_mgo_kg
+amm_wtw = amm_gwp + wtt_nh3_kg + wtt_mgo_kg
+
+# Decide what to display based on toggle
+if include_wtt:
+    lng_display = lng_wtw
+    amm_display = amm_wtw
+    analysis_type = "WTW"
+else:
+    lng_display = lng_gwp
+    amm_display = amm_gwp
+    analysis_type = "TTW"
+
 # ════════════════════════════════════════════════════════
 # DISPLAY: ENERGY DEMAND
 # ════════════════════════════════════════════════════════
@@ -178,24 +210,29 @@ st.divider()
 # DISPLAY: GWP RESULTS
 # ════════════════════════════════════════════════════════
 
-st.subheader("📊 GWP100 Results — One Round Trip")
+st.subheader(f"📊 GWP100 Results — One Round Trip ({analysis_type})")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric(label="🔵 LNG + MGO", value=f"{lng_gwp:,.0f} kg CO2-eq",
+    st.metric(label=f"🔵 LNG + MGO ({analysis_type})", 
+              value=f"{lng_display:,.0f} kg CO2-eq",
               help="Reference scenario")
+    if include_wtt:
+        st.caption(f"TTW: {lng_gwp:,.0f} | WTT: {wtt_lng_kg + wtt_mgo_kg:,.0f}")
 
 with col2:
-    diff = amm_gwp - lng_gwp
-    pct = diff / lng_gwp * 100 if lng_gwp > 0 else 0
+    diff = amm_display - lng_display
+    pct = diff / lng_display * 100 if lng_display > 0 else 0
     label = f"{abs(pct):.1f}% {'more' if pct > 0 else 'less'} GWP than LNG"
     color = "inverse" if pct > 0 else "normal"
     st.metric(
-        label=f"🟢 Ammonia + MGO (SCR {scr_efficiency:.1f}%)",
-        value=f"{amm_gwp:,.0f} kg CO2-eq",
+        label=f"🟢 Ammonia + MGO (SCR {scr_efficiency:.1f}%) ({analysis_type})",
+        value=f"{amm_display:,.0f} kg CO2-eq",
         delta=label, delta_color=color
     )
+    if include_wtt:
+        st.caption(f"TTW: {amm_gwp:,.0f} | WTT: {wtt_nh3_kg + wtt_mgo_kg:,.0f}")
 
 st.divider()
 
@@ -209,12 +246,12 @@ with col_left:
     st.subheader("📊 Scenario Comparison")
     
     scenarios = ['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency:.1f}%']
-    values = [lng_gwp, amm_gwp]
+    values = [lng_display, amm_display]
     colors = ['#2196F3', '#4CAF50']
     
     fig1, ax1 = plt.subplots(figsize=(7, 5))
     bars = ax1.bar(scenarios, values, color=colors, edgecolor='white', linewidth=0.5)
-    ax1.axhline(y=lng_gwp, color='blue', linestyle='--', linewidth=1.5, alpha=0.5)
+    ax1.axhline(y=lng_display, color='blue', linestyle='--', linewidth=1.5, alpha=0.5)
     
     for bar, val in zip(bars, values):
         ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 200,
@@ -222,7 +259,7 @@ with col_left:
                  fontsize=10, fontweight='bold')
     
     ax1.set_ylabel('GWP100 (kg CO2-eq per round trip)')
-    ax1.set_title('Scenario Comparison')
+    ax1.set_title(f'Scenario Comparison ({analysis_type})')
     ax1.grid(True, alpha=0.3, axis='y')
     st.pyplot(fig1)
 
@@ -233,24 +270,28 @@ with col_right:
     ammonia_scores = []
     for scr in scr_range:
         n2o_scr = (e_main * ef_nh3_n2o / 1000) * (1 - scr/100)
-        gwp = (n2o_scr*CF_N2O + nh3_slip*CF_NH3 +
-               mgo_co2*CF_CO2 + mgo_ch4*CF_CH4 + mgo_n2o*CF_N2O)
+        gwp_ttw = (n2o_scr*CF_N2O + nh3_slip*CF_NH3 +
+                   mgo_co2*CF_CO2 + mgo_ch4*CF_CH4 + mgo_n2o*CF_N2O)
+        if include_wtt:
+            gwp = gwp_ttw + wtt_nh3_kg + wtt_mgo_kg
+        else:
+            gwp = gwp_ttw
         ammonia_scores.append(gwp)
     
     breakeven = next((s for s, score in zip(scr_range, ammonia_scores)
-                      if score <= lng_gwp), None)
+                      if score <= lng_display), None)
     
     fig2, ax2 = plt.subplots(figsize=(7, 5))
     ax2.plot(scr_range, ammonia_scores, color='green',
              linewidth=2.5, label='Green Ammonia + MGO')
-    ax2.axhline(y=lng_gwp, color='blue', linewidth=2,
-                linestyle='--', label=f'LNG ref ({lng_gwp:,.0f})')
+    ax2.axhline(y=lng_display, color='blue', linewidth=2,
+                linestyle='--', label=f'LNG ref ({lng_display:,.0f})')
     
     if breakeven is not None:
         ax2.axvline(x=breakeven, color='red', linewidth=1.5,
                     linestyle=':', label=f'Breakeven: {breakeven}% SCR')
     
-    ax2.scatter([scr_efficiency], [amm_gwp],
+    ax2.scatter([scr_efficiency], [amm_display],
                 color='green', s=100, zorder=5,
                 label=f'Current: SCR {scr_efficiency:.1f}%')
     
@@ -606,8 +647,9 @@ st.subheader("🔑 Key Findings")
 col_a, col_b, col_c = st.columns(3)
 
 with col_a:
+    with col_a:
     if breakeven is not None:
-        st.info(f"**Breakeven SCR: {breakeven}%**\n\n"
+        st.info(f"**Breakeven SCR: {breakeven}%** ({analysis_type})\n\n"
                 f"Green ammonia needs at least {breakeven}% SCR efficiency "
                 f"to outperform LNG under current settings.")
     else:
