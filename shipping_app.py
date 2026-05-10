@@ -324,6 +324,7 @@ def calc_both_gwps(params):
         'aux_power': aux_power, 'cruising_hours': cruising_hours,
         'maneuver_hours': maneuver_hours, 'total_hours': total_hours,
         'pilot_fraction': pilot_fraction, 'scr_efficiency': scr_efficiency,
+        'wtt_lng': wtt_lng, 'wtt_nh3': wtt_nh3, 'wtt_mgo': wtt_mgo,
     }
     p.update(params)
     
@@ -354,6 +355,13 @@ def calc_both_gwps(params):
     amm_g = (n_n2o*CF_N2O + n_slip*CF_NH3 +
              m_co2*CF_CO2 + m_ch4*CF_CH4 + m_n2o*CF_N2O)
     
+    # Add WTT if WTW mode is on
+    if include_wtt:
+        wtt_l = e_m * p['wtt_lng'] / 1000 + e_p * p['wtt_mgo'] / 1000
+        wtt_a = e_m * p['wtt_nh3'] / 1000 + e_p * p['wtt_mgo'] / 1000
+        lng_g += wtt_l
+        amm_g += wtt_a
+    
     return lng_g, amm_g
 
 # Parameters to test
@@ -373,6 +381,12 @@ parameters_to_test = {
     'Pilot fraction':  ('pilot_fraction', pilot_fraction),
     'SCR efficiency':  ('scr_efficiency', scr_efficiency),
 }
+
+# Add WTT parameters when WTW mode is on
+if include_wtt:
+    parameters_to_test['LNG WTT'] = ('wtt_lng', wtt_lng)
+    parameters_to_test['NH3 WTT'] = ('wtt_nh3', wtt_nh3)
+    parameters_to_test['MGO WTT'] = ('wtt_mgo', wtt_mgo)
 
 baseline_diff = amm_gwp - lng_gwp  # Negative if ammonia is better
 tornado_data = []
@@ -413,7 +427,7 @@ ax5.set_yticklabels(labels)
 ax5.invert_yaxis()
 ax5.axvline(x=0, color='black', linewidth=1.5)
 ax5.set_xlabel('Change in (Ammonia GWP − LNG GWP) — kg CO2-eq', fontsize=11)
-ax5.set_title(f'Tornado Diagram — Baseline GWP Difference: {baseline_diff:,.0f} kg CO2-eq\n'
+ax5.set_title(f'Tornado Diagram — Baseline GWP Difference: {baseline_diff:,.0f} kg CO2-eq ({analysis_type})\n'
               '(parameters ranked by impact on the comparison)', fontsize=12)
 
 # Add directional labels on the chart
@@ -459,16 +473,31 @@ contrib_data = {
     'N2O': [(lng_n2o + mgo_n2o)*CF_N2O, (nh3_n2o + mgo_n2o)*CF_N2O],
 }
 
+# Add WTT as separate segment if WTW mode is on
+if include_wtt:
+    contrib_data['WTT (Upstream)'] = [
+        wtt_lng_kg + wtt_mgo_kg,
+        wtt_nh3_kg + wtt_mgo_kg
+    ]
+
 df_contrib = pd.DataFrame(
     contrib_data,
     index=['LNG + MGO', f'Ammonia + MGO\nSCR {scr_efficiency:.1f}%']
 )
 
 fig3, ax3 = plt.subplots(figsize=(10, 5))
-colors_contrib = ['#2196F3', '#FF9800', '#F44336']
+
+# Build colors and pollutants list dynamically
+if include_wtt:
+    pollutants_list = ['CO2', 'CH4', 'N2O', 'WTT (Upstream)']
+    colors_contrib = ['#2196F3', '#FF9800', '#F44336', '#4CAF50']
+else:
+    pollutants_list = ['CO2', 'CH4', 'N2O']
+    colors_contrib = ['#2196F3', '#FF9800', '#F44336']
+
 bottom = np.zeros(2)
 
-for pollutant, color in zip(['CO2', 'CH4', 'N2O'], colors_contrib):
+for pollutant, color in zip(pollutants_list, colors_contrib):
     values = df_contrib[pollutant].values
     ax3.bar(df_contrib.index, values, bottom=bottom,
             color=color, label=pollutant,
@@ -481,7 +510,7 @@ for pollutant, color in zip(['CO2', 'CH4', 'N2O'], colors_contrib):
     bottom += values
 
 ax3.set_ylabel('GWP100 (kg CO2-eq per round trip)')
-ax3.set_title('Contribution Analysis by Pollutant')
+ax3.set_title(f'Contribution Analysis by Pollutant ({analysis_type})')
 ax3.legend()
 ax3.grid(True, alpha=0.3, axis='y')
 st.pyplot(fig3)
@@ -580,7 +609,10 @@ st.divider()
 # ════════════════════════════════════════════════════════
 
 st.subheader("🎲 Monte Carlo Uncertainty Analysis")
-st.markdown("±20% uncertainty on emission factors | 1,000 simulation runs")
+if include_wtt:
+    st.markdown("±20% uncertainty on emission factors and WTT values | 1,000 simulation runs (WTW)")
+else:
+    st.markdown("±20% uncertainty on emission factors | 1,000 simulation runs (TTW)")
 
 n_runs = 1000
 np.random.seed(42)
@@ -604,6 +636,15 @@ lng_runs = (e_main*s_lng_co2/1000*CF_CO2 + e_main*s_lng_ch4/1000*CF_CH4 +
 amm_runs = (e_main*s_nh3_n2o/1000*(1-scr_efficiency/100)*CF_N2O +
             e_pilot*s_mgo_co2/1000*CF_CO2 + e_pilot*s_mgo_ch4/1000*CF_CH4 +
             e_pilot*s_mgo_n2o/1000*CF_N2O)
+
+# Add WTT uncertainty when WTW mode is on
+if include_wtt:
+    s_wtt_lng = sample_factor(wtt_lng)
+    s_wtt_nh3 = sample_factor(wtt_nh3)
+    s_wtt_mgo = sample_factor(wtt_mgo)
+    
+    lng_runs = lng_runs + e_main*s_wtt_lng/1000 + e_pilot*s_wtt_mgo/1000
+    amm_runs = amm_runs + e_main*s_wtt_nh3/1000 + e_pilot*s_wtt_mgo/1000
 
 mc_stats = pd.DataFrame({
     'Scenario': ['LNG + MGO', f'Ammonia + MGO (SCR {scr_efficiency:.1f}%)'],
@@ -630,7 +671,7 @@ for name, runs, color in mc_scenarios:
 
 ax4.set_xlabel('GWP100 (kg CO2-eq per round trip)', fontsize=12)
 ax4.set_ylabel('Probability density', fontsize=12)
-ax4.set_title('Monte Carlo Distributions | ±20% uncertainty | 1,000 runs',
+ax4.set_title(f'Monte Carlo Distributions ({analysis_type}) | ±20% uncertainty | 1,000 runs',
               fontsize=12)
 ax4.legend(fontsize=10)
 ax4.grid(True, alpha=0.3)
