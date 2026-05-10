@@ -647,7 +647,6 @@ st.subheader("🔑 Key Findings")
 col_a, col_b, col_c = st.columns(3)
 
 with col_a:
-    with col_a:
     if breakeven is not None:
         st.info(f"**Breakeven SCR: {breakeven}%** ({analysis_type})\n\n"
                 f"Green ammonia needs at least {breakeven}% SCR efficiency "
