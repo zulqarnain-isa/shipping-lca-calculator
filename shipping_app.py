@@ -714,3 +714,308 @@ st.divider()
 st.caption("Physics-based simulation | IPCC 2021 GWP100 | "
            "Brightway2 + Python + Streamlit | One complete round trip | "
            "Costs are illustrative and exclude CAPEX")
+
+# ════════════════════════════════════════════════════════
+# REAL-TIME LCA SIMULATION
+# ════════════════════════════════════════════════════════
+
+st.divider()
+st.header("🕒 Real-time LCA Simulation")
+st.markdown("""
+Time-resolved LCA showing emissions as they unfold during the voyage. 
+Uses a piecewise constant operational profile based on your thesis parameters.
+""")
+
+# ── Voyage Phase Configuration ──
+st.subheader("🗺️ Voyage Phase Configuration")
+st.caption("Configure the 17.6-hour round trip into phases")
+
+col_p1, col_p2, col_p3, col_p4, col_p5 = st.columns(5)
+
+with col_p1:
+    phase1_hours = st.number_input("Departure maneuver (h)", 
+                                    min_value=0.0, max_value=5.0, 
+                                    value=1.5, step=0.1)
+with col_p2:
+    phase2_hours = st.number_input("Outbound cruise (h)", 
+                                    min_value=0.0, max_value=10.0, 
+                                    value=6.8, step=0.1)
+with col_p3:
+    phase3_hours = st.number_input("Mid maneuver (h)", 
+                                    min_value=0.0, max_value=5.0, 
+                                    value=1.0, step=0.1)
+with col_p4:
+    phase4_hours = st.number_input("Return cruise (h)", 
+                                    min_value=0.0, max_value=10.0, 
+                                    value=6.8, step=0.1)
+with col_p5:
+    phase5_hours = st.number_input("Final maneuver (h)", 
+                                    min_value=0.0, max_value=5.0, 
+                                    value=1.5, step=0.1)
+
+total_voyage_hours = phase1_hours + phase2_hours + phase3_hours + phase4_hours + phase5_hours
+st.caption(f"**Total voyage duration:** {total_voyage_hours:.1f} hours "
+           f"(Cruising: {phase2_hours + phase4_hours:.1f}h | "
+           f"Maneuvering: {phase1_hours + phase3_hours + phase5_hours:.1f}h)")
+
+# ── Simulation Settings ──
+col_s1, col_s2 = st.columns(2)
+with col_s1:
+    time_resolution_s = st.selectbox(
+        "Time resolution",
+        options=[10, 30, 60],
+        index=0,
+        help="10s = paper standard, 60s = faster"
+    )
+with col_s2:
+    display_mode = st.radio(
+        "Display mode",
+        options=["Instant", "Animated"],
+        horizontal=True,
+        help="Instant: see full results. Animated: watch voyage unfold."
+    )
+
+# ── Run Button ──
+run_sim = st.button("▶️ Run Real-time LCA Simulation", type="primary")
+
+if run_sim:
+    # Generate time-resolved load profile
+    total_seconds = int(total_voyage_hours * 3600)
+    n_steps = total_seconds // time_resolution_s
+    
+    # Phase boundaries in seconds
+    p1_end = phase1_hours * 3600
+    p2_end = p1_end + phase2_hours * 3600
+    p3_end = p2_end + phase3_hours * 3600
+    p4_end = p3_end + phase4_hours * 3600
+    p5_end = p4_end + phase5_hours * 3600
+    
+    # Build profile arrays
+    time_array = np.arange(0, total_seconds, time_resolution_s)
+    load_array = np.zeros(len(time_array))
+    phase_array = []
+    
+    for i, t in enumerate(time_array):
+        if t < p1_end:
+            load_array[i] = maneuver_load / 100
+            phase_array.append("Departure maneuver")
+        elif t < p2_end:
+            load_array[i] = cruise_load / 100
+            phase_array.append("Outbound cruise")
+        elif t < p3_end:
+            load_array[i] = maneuver_load / 100
+            phase_array.append("Mid maneuver")
+        elif t < p4_end:
+            load_array[i] = cruise_load / 100
+            phase_array.append("Return cruise")
+        else:
+            load_array[i] = maneuver_load / 100
+            phase_array.append("Final maneuver")
+    
+    # ── Time-stepping calculation loop ──
+    dt_hours = time_resolution_s / 3600
+    
+    # Pre-allocate arrays
+    lng_gwp_rate = np.zeros(len(time_array))
+    amm_gwp_rate = np.zeros(len(time_array))
+    lng_cumulative = np.zeros(len(time_array))
+    amm_cumulative = np.zeros(len(time_array))
+    
+    for i in range(len(time_array)):
+        # Power at this moment (kW)
+        propulsion_power = total_power * load_array[i]
+        total_power_now = propulsion_power + aux_power
+        
+        # Energy in this time slice (MJ)
+        energy_slice_kwh = total_power_now * dt_hours
+        energy_slice_mj = energy_slice_kwh * 3.6
+        
+        # Split fuels
+        e_main_slice = energy_slice_mj * (1 - pilot_fraction/100)
+        e_pilot_slice = energy_slice_mj * (pilot_fraction/100)
+        
+        # LNG configuration emissions in this slice
+        lng_co2_s = e_main_slice * ef_lng_co2 / 1000
+        lng_ch4_s = e_main_slice * ef_lng_ch4 / 1000
+        lng_n2o_s = e_main_slice * ef_lng_n2o / 1000
+        mgo_co2_s = e_pilot_slice * ef_mgo_co2 / 1000
+        mgo_ch4_s = e_pilot_slice * ef_mgo_ch4 / 1000
+        mgo_n2o_s = e_pilot_slice * ef_mgo_n2o / 1000
+        
+        lng_ttw_slice = (lng_co2_s*CF_CO2 + lng_ch4_s*CF_CH4 + lng_n2o_s*CF_N2O +
+                          mgo_co2_s*CF_CO2 + mgo_ch4_s*CF_CH4 + mgo_n2o_s*CF_N2O)
+        
+        # Ammonia configuration emissions in this slice
+        nh3_n2o_raw_s = e_main_slice * ef_nh3_n2o / 1000
+        nh3_n2o_s = nh3_n2o_raw_s * (1 - scr_efficiency/100)
+        nh3_slip_s = e_main_slice * ef_nh3_slip / 1000
+        
+        amm_ttw_slice = (nh3_n2o_s*CF_N2O + nh3_slip_s*CF_NH3 +
+                          mgo_co2_s*CF_CO2 + mgo_ch4_s*CF_CH4 + mgo_n2o_s*CF_N2O)
+        
+        # Add WTT if WTW mode enabled
+        if include_wtt:
+            lng_wtt_slice = e_main_slice * wtt_lng / 1000 + e_pilot_slice * wtt_mgo / 1000
+            amm_wtt_slice = e_main_slice * wtt_nh3 / 1000 + e_pilot_slice * wtt_mgo / 1000
+            lng_slice = lng_ttw_slice + lng_wtt_slice
+            amm_slice = amm_ttw_slice + amm_wtt_slice
+        else:
+            lng_slice = lng_ttw_slice
+            amm_slice = amm_ttw_slice
+        
+        # Convert from kg per slice to kg per hour rate
+        lng_gwp_rate[i] = lng_slice / dt_hours
+        amm_gwp_rate[i] = amm_slice / dt_hours
+        
+        # Cumulative
+        if i == 0:
+            lng_cumulative[i] = lng_slice
+            amm_cumulative[i] = amm_slice
+        else:
+            lng_cumulative[i] = lng_cumulative[i-1] + lng_slice
+            amm_cumulative[i] = amm_cumulative[i-1] + amm_slice
+    
+    # Convert time array to hours for display
+    time_hours = time_array / 3600
+    
+    # ── Display Results ──
+    st.success(f"✅ Simulation complete! {len(time_array):,} time steps calculated")
+    
+    # Validation check
+    st.subheader("✅ Validation Check")
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        st.metric("Real-time LNG total", f"{lng_cumulative[-1]:,.0f} kg CO2-eq")
+        st.caption(f"Static analysis value: {lng_display:,.0f} kg CO2-eq")
+        diff_lng = abs(lng_cumulative[-1] - lng_display) / lng_display * 100
+        st.caption(f"Difference: {diff_lng:.2f}%")
+    with col_v2:
+        st.metric("Real-time Ammonia total", f"{amm_cumulative[-1]:,.0f} kg CO2-eq")
+        st.caption(f"Static analysis value: {amm_display:,.0f} kg CO2-eq")
+        diff_amm = abs(amm_cumulative[-1] - amm_display) / amm_display * 100
+        st.caption(f"Difference: {diff_amm:.2f}%")
+    
+    # ── Chart 1: Real-time emission rate ──
+    st.subheader("📈 Real-time Emission Rate")
+    
+    if display_mode == "Animated":
+        # Animated version
+        import time as time_module
+        chart_placeholder = st.empty()
+        progress_bar = st.progress(0)
+        
+        # Show in chunks for animation
+        n_chunks = 30  # Update display 30 times during voyage
+        chunk_size = max(1, len(time_array) // n_chunks)
+        
+        for chunk_end in range(chunk_size, len(time_array) + 1, chunk_size):
+            fig_anim, ax_anim = plt.subplots(figsize=(12, 5))
+            ax_anim.plot(time_hours[:chunk_end], lng_gwp_rate[:chunk_end], 
+                         color='#2196F3', linewidth=1.5, label='LNG + MGO')
+            ax_anim.plot(time_hours[:chunk_end], amm_gwp_rate[:chunk_end], 
+                         color='#4CAF50', linewidth=1.5, 
+                         label=f'Ammonia + MGO (SCR {scr_efficiency:.0f}%)')
+            ax_anim.set_xlabel('Voyage time (hours)')
+            ax_anim.set_ylabel('GWP rate (kg CO2-eq/hour)')
+            ax_anim.set_title(f'Real-time Emission Rate — Voyage progress: {time_hours[chunk_end-1]:.1f}h / {total_voyage_hours:.1f}h')
+            ax_anim.set_xlim(0, total_voyage_hours)
+            ax_anim.legend()
+            ax_anim.grid(True, alpha=0.3)
+            chart_placeholder.pyplot(fig_anim)
+            plt.close(fig_anim)
+            progress_bar.progress(chunk_end / len(time_array))
+            time_module.sleep(0.1)
+        
+        progress_bar.empty()
+    else:
+        # Instant version
+        fig_rt, ax_rt = plt.subplots(figsize=(12, 5))
+        ax_rt.plot(time_hours, lng_gwp_rate, color='#2196F3', 
+                   linewidth=1.5, label='LNG + MGO')
+        ax_rt.plot(time_hours, amm_gwp_rate, color='#4CAF50', 
+                   linewidth=1.5, label=f'Ammonia + MGO (SCR {scr_efficiency:.0f}%)')
+        ax_rt.set_xlabel('Voyage time (hours)')
+        ax_rt.set_ylabel('GWP rate (kg CO2-eq/hour)')
+        ax_rt.set_title(f'Real-time Emission Rate ({analysis_type})')
+        ax_rt.legend()
+        ax_rt.grid(True, alpha=0.3)
+        st.pyplot(fig_rt)
+    
+    # ── Chart 2: Load profile ──
+    st.subheader("⚙️ Engine Load Profile")
+    fig_load, ax_load = plt.subplots(figsize=(12, 3))
+    ax_load.fill_between(time_hours, 0, load_array * 100, 
+                          color='#FF9800', alpha=0.5)
+    ax_load.plot(time_hours, load_array * 100, color='#E65100', linewidth=1.5)
+    ax_load.set_xlabel('Voyage time (hours)')
+    ax_load.set_ylabel('Engine load (%)')
+    ax_load.set_title('Engine Load Profile (Piecewise Constant)')
+    ax_load.grid(True, alpha=0.3)
+    ax_load.set_ylim(0, 100)
+    st.pyplot(fig_load)
+    
+    # ── Chart 3: Cumulative GWP ──
+    st.subheader("📊 Cumulative GWP Over Voyage")
+    fig_cum, ax_cum = plt.subplots(figsize=(12, 5))
+    ax_cum.plot(time_hours, lng_cumulative, color='#2196F3', 
+                linewidth=2.5, label='LNG + MGO')
+    ax_cum.plot(time_hours, amm_cumulative, color='#4CAF50', 
+                linewidth=2.5, label=f'Ammonia + MGO (SCR {scr_efficiency:.0f}%)')
+    ax_cum.fill_between(time_hours, 0, lng_cumulative, color='#2196F3', alpha=0.15)
+    ax_cum.fill_between(time_hours, 0, amm_cumulative, color='#4CAF50', alpha=0.15)
+    ax_cum.set_xlabel('Voyage time (hours)')
+    ax_cum.set_ylabel('Cumulative GWP (kg CO2-eq)')
+    ax_cum.set_title(f'Cumulative Emissions Over Voyage ({analysis_type})')
+    ax_cum.legend()
+    ax_cum.grid(True, alpha=0.3)
+    st.pyplot(fig_cum)
+    
+    # ── Chart 4: Histogram ──
+    st.subheader("📊 Emission Rate Distribution")
+    fig_hist, (ax_h1, ax_h2) = plt.subplots(1, 2, figsize=(12, 4))
+    
+    ax_h1.hist(lng_gwp_rate, bins=30, color='#2196F3', alpha=0.7, edgecolor='white')
+    ax_h1.set_xlabel('GWP rate (kg CO2-eq/hour)')
+    ax_h1.set_ylabel('Frequency (# of time steps)')
+    ax_h1.set_title('LNG + MGO — Emission Rate Distribution')
+    ax_h1.grid(True, alpha=0.3, axis='y')
+    
+    ax_h2.hist(amm_gwp_rate, bins=30, color='#4CAF50', alpha=0.7, edgecolor='white')
+    ax_h2.set_xlabel('GWP rate (kg CO2-eq/hour)')
+    ax_h2.set_ylabel('Frequency (# of time steps)')
+    ax_h2.set_title(f'Ammonia + MGO (SCR {scr_efficiency:.0f}%) — Distribution')
+    ax_h2.grid(True, alpha=0.3, axis='y')
+    
+    plt.tight_layout()
+    st.pyplot(fig_hist)
+    
+    # ── Phase summary ──
+    st.subheader("📋 Emissions by Voyage Phase")
+    
+    phase_summary = pd.DataFrame({
+        'Phase': ['Departure maneuver', 'Outbound cruise', 'Mid maneuver', 
+                  'Return cruise', 'Final maneuver'],
+        'Duration (h)': [phase1_hours, phase2_hours, phase3_hours, 
+                          phase4_hours, phase5_hours],
+        'Load (%)': [maneuver_load, cruise_load, maneuver_load, 
+                      cruise_load, maneuver_load],
+    })
+    
+    # Calculate per-phase emissions
+    phase_lng = []
+    phase_amm = []
+    boundaries = [0, p1_end, p2_end, p3_end, p4_end, p5_end]
+    for i in range(5):
+        start_idx = int(boundaries[i] / time_resolution_s)
+        end_idx = int(boundaries[i+1] / time_resolution_s)
+        if start_idx == 0:
+            phase_lng.append(lng_cumulative[end_idx-1])
+            phase_amm.append(amm_cumulative[end_idx-1])
+        else:
+            phase_lng.append(lng_cumulative[end_idx-1] - lng_cumulative[start_idx-1])
+            phase_amm.append(amm_cumulative[end_idx-1] - amm_cumulative[start_idx-1])
+    
+    phase_summary['LNG GWP (kg CO2-eq)'] = [f"{v:,.0f}" for v in phase_lng]
+    phase_summary['Ammonia GWP (kg CO2-eq)'] = [f"{v:,.0f}" for v in phase_amm]
+    
+    st.dataframe(phase_summary, use_container_width=True, hide_index=True)
